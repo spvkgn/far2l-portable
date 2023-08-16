@@ -1,0 +1,160 @@
+name: build
+run-name: Nightly build for ${{ github.event.client_payload.sha }}
+
+on:
+  repository_dispatch:
+    types: [build-nightly]
+
+env:
+  REPO: 'elfmz/far2l'
+
+jobs:
+  build:
+    name: ${{ matrix.distro }}-${{ matrix.version }} build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - distro: alpine
+            version: 'latest'
+            libc: musl
+          - distro: ubuntu
+            version: '16.04'
+            libc: glibc
+    container: ${{ matrix.distro }}:${{ matrix.version }}
+    steps:
+      - name: Add build dependencies
+        env:
+          packages-alpine: >
+            bash build-base ccache cmake coreutils findutils gawk grep libarchive-dev libnfs-dev libssh-dev
+            libtree libxi-dev linux-headers neon-dev ninja-build patchelf pcre-dev perl samba-dev tar
+            uchardet-dev wget xerces-c-dev xz
+          packages-ubuntu: >
+            ccache cmake file g++ libarchive-dev libneon27-dev libnfs-dev libpcre3-dev libsmbclient-dev libssh-dev
+            libuchardet-dev libxerces-c-dev libxi-dev libtree makeself ninja-build patch patchelf quilt wget
+        run: |
+          if [ "${{ matrix.distro }}" = "alpine" ]; then
+            apk add --update --no-progress ${{ env.packages-alpine }}
+            apk add --no-progress makeself quilt --repository=https://dl-cdn.alpinelinux.org/alpine/edge/testing
+          elif [ "${{ matrix.distro }}" = "ubuntu" ]; then
+            if [ "${{ matrix.version }}" = "16.04" ]; then
+              echo "deb [trusted=yes] http://ppa.launchpad.net/far2l-team/tools/ubuntu xenial main" | tee /etc/apt/sources.list.d/far2l-team.list
+              apt update -qq && apt install -y --no-install-recommends ${{ env.packages-ubuntu }}
+            fi
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Checkout far2l
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ env.REPO }}
+          path: far2l
+
+      - name: Setup ccache
+        uses: actions/cache@v3
+        with:
+          path: ${{ github.workspace }}/.ccache
+          key: ccache-${{ matrix.distro }}-${{ matrix.version }}-${{ github.event.client_payload.sha }}
+          restore-keys: |
+            ccache-${{ matrix.distro }}-${{ matrix.version }}-
+
+      - name: Build far2l
+        working-directory: ./far2l
+        env:
+          DATE: ${{ github.event.client_payload.date }}
+          SHA: ${{ github.event.client_payload.sha }}
+          TAG: ${{ github.event.client_payload.tag }}
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
+          LIBC: ${{ matrix.libc }}
+        shell: bash
+        run: |
+          export VERSION=$(echo $TAG | grep -Po '(\d+\.)+\d+')+git$(date --utc -d $DATE +%Y%m%d)
+          export PKG_NAME=far2l_${VERSION}_${LIBC}-$(uname -m)
+          BUILD_DIR=build
+          INSTALL_DIR=install
+          PLUGINS=
+
+          if [[ "${{ matrix.distro }}" == "alpine" ]]; then
+            CMAKE_OPTS+=( "-DCMAKE_MAKE_PROGRAM=/usr/lib/ninja-build/bin/ninja -DMUSL=ON" )
+          fi
+          if [[ "$PLUGINS" == "OFF" ]]; then
+            CMAKE_OPTS+=( "-DCOLORER=no -DNETROCKS=no -DALIGN=no -DAUTOWRAP=no -DCALC=no \
+              -DCOMPARE=no -DDRAWLINE=no -DEDITCASE=no -DEDITORCOMP=no -DFILECASE=no \
+              -DINCSRCH=no -DINSIDE=no -DMULTIARC=no -DSIMPLEINDENT=no -DTMPPANEL=no" )
+          fi
+
+          QUILT_PATCHES=../patches quilt push -a
+
+          mkdir -p $BUILD_DIR && cd $BUILD_DIR && \
+          cmake -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_VERBOSE_MAKEFILE=ON \
+            -DCMAKE_C_COMPILER_LAUNCHER=/usr/bin/ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=/usr/bin/ccache \
+            -DCMAKE_DISABLE_FIND_PACKAGE_Git=ON -DGIT_HASH=${SHA:0:7} \
+            -DUSEWX=no ${CMAKE_OPTS[@]} .. && cmake --build . && \
+
+          ( cd $INSTALL_DIR && bash ${GITHUB_WORKSPACE}/make_standalone.sh ) && \
+          makeself --keep-umask ${GITHUB_WORKSPACE}/far2l/$BUILD_DIR/$INSTALL_DIR $PKG_NAME.run "FAR2L File Manager" ./far2l && \
+          $INSTALL_DIR/far2l --help && \
+
+          find ${GITHUB_WORKSPACE} -type f -name 'far2l_*.run' -exec sh -c 'tar cvf $PKG_NAME.run.tar --transform "s|.*/||" {}' \; && \
+          echo "PATH_RUNTAR=$(find ${GITHUB_WORKSPACE} -type f -name "$PKG_NAME.run.tar" -print)" >> $GITHUB_ENV
+          ccache -s
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: far2l-${{ matrix.distro }}-${{ matrix.version }}
+          path: ${{ env.PATH_RUNTAR }}
+          if-no-files-found: error
+
+  release:
+    name: Upload Nightly release
+    needs: build
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "DATE=$(date --utc -d $DATE +%Y%m%d)" >> $GITHUB_ENV
+        env:
+          DATE: ${{ github.event.client_payload.date }}
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Upload
+        uses: andelf/nightly-release@main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: nightly
+          name: '${{ env.DATE }}'
+          prerelease: false
+          body: |
+            ${{ env.REPO }}@${{ github.event.client_payload.sha }}
+          files: |
+            ./**/far2l_*.run.tar
+
+      - name: Update version for badge
+        shell: bash
+        env:
+          SHA: ${{ github.event.client_payload.sha }}
+          TAG: ${{ github.event.client_payload.tag }}
+        run: |
+          echo "VERSION=$(echo $TAG | grep -Po '(\d+\.)+\d+')-${SHA:0:7}" >> $GITHUB_ENV
+
+      - name: Write to gist
+        uses: schneegans/dynamic-badges-action@v1.6.0
+        with:
+          auth: ${{ secrets.GIST_SECRET }}
+          gistID: f53cb6c1d56b0eaf40c88d607fc5fef1
+          filename: far2l-portable.json
+          label: version
+          message: ${{ env.VERSION }}
+          color: blue
+
+      - name: Delete workflow runs
+        uses: Mattraks/delete-workflow-runs@v2
+        continue-on-error: true
