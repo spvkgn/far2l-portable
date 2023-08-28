@@ -15,9 +15,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - distro: alpine
-            version: 'latest'
-            libc: musl
           - distro: ubuntu
             version: '16.04'
             libc: glibc
@@ -25,22 +22,15 @@ jobs:
     steps:
       - name: Add build dependencies
         env:
-          packages-alpine: >
-            bash build-base ccache cmake coreutils findutils gawk grep libarchive-dev libnfs-dev libssh-dev
-            libtree libxi-dev linux-headers neon-dev ninja-build patchelf pcre-dev perl samba-dev tar
-            uchardet-dev wget xerces-c-dev xz
-          packages-ubuntu: >
+          PACKAGES: >
             ccache cmake file g++ libarchive-dev libneon27-dev libnfs-dev libpcre3-dev libsmbclient-dev libssh-dev
             libuchardet-dev libxerces-c-dev libxi-dev libtree makeself ninja-build patch patchelf quilt wget
         run: |
-          if [ "${{ matrix.distro }}" = "alpine" ]; then
-            apk add --update --no-progress ${{ env.packages-alpine }}
-            apk add --no-progress makeself quilt --repository=https://dl-cdn.alpinelinux.org/alpine/edge/testing
-          elif [ "${{ matrix.distro }}" = "ubuntu" ]; then
+          if [ "${{ matrix.distro }}" = "ubuntu" ]; then
             if [ "${{ matrix.version }}" = "16.04" ]; then
               echo "deb [trusted=yes] http://ppa.launchpad.net/far2l-team/tools/ubuntu xenial main" | tee /etc/apt/sources.list.d/far2l-team.list
-              apt update -qq && apt install -y --no-install-recommends ${{ env.packages-ubuntu }}
             fi
+            apt update -qq && apt install -y --no-install-recommends ${{ env.PACKAGES }}
           fi
 
       - name: Checkout
@@ -63,96 +53,124 @@ jobs:
       - name: Build far2l
         working-directory: ./far2l
         env:
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
           DATE: ${{ github.event.client_payload.date }}
           SHA: ${{ github.event.client_payload.sha }}
           TAG: ${{ github.event.client_payload.tag }}
-          CCACHE_DIR: ${{ github.workspace }}/.ccache
           LIBC: ${{ matrix.libc }}
         shell: bash
         run: |
-          export VERSION=$(echo $TAG | grep -Po '(\d+\.)+\d+')+git$(date --utc -d $DATE +%Y%m%d)
-          export PKG_NAME=far2l_${VERSION}_${LIBC}-$(uname -m)
-          BUILD_DIR=build
-          INSTALL_DIR=install
-          PLUGINS=
-
-          if [[ "${{ matrix.distro }}" == "alpine" ]]; then
-            CMAKE_OPTS+=( "-DCMAKE_MAKE_PROGRAM=/usr/lib/ninja-build/bin/ninja -DMUSL=ON" )
-          fi
-          if [[ "$PLUGINS" == "OFF" ]]; then
-            CMAKE_OPTS+=( "-DCOLORER=no -DNETROCKS=no -DALIGN=no -DAUTOWRAP=no -DCALC=no \
-              -DCOMPARE=no -DDRAWLINE=no -DEDITCASE=no -DEDITORCOMP=no -DFILECASE=no \
-              -DINCSRCH=no -DINSIDE=no -DMULTIARC=no -DSIMPLEINDENT=no -DTMPPANEL=no" )
-          fi
-
-          QUILT_PATCHES=../patches quilt push -a
-
-          mkdir -p $BUILD_DIR && cd $BUILD_DIR && \
-          cmake -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release -DCMAKE_VERBOSE_MAKEFILE=ON \
-            -DCMAKE_C_COMPILER_LAUNCHER=/usr/bin/ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=/usr/bin/ccache \
-            -DCMAKE_DISABLE_FIND_PACKAGE_Git=ON -DGIT_HASH=${SHA:0:7} \
-            -DUSEWX=no ${CMAKE_OPTS[@]} .. && cmake --build . && \
-
-          ( cd $INSTALL_DIR && bash ${GITHUB_WORKSPACE}/make_standalone.sh ) && \
-          makeself --keep-umask ${GITHUB_WORKSPACE}/far2l/$BUILD_DIR/$INSTALL_DIR $PKG_NAME.run "FAR2L File Manager" ./far2l && \
-          $INSTALL_DIR/far2l --help && \
-
-          find ${GITHUB_WORKSPACE} -type f -name 'far2l_*.run' -exec sh -c 'tar cvf $PKG_NAME.run.tar --transform "s|.*/||" {}' \; && \
-          echo "PATH_RUNTAR=$(find ${GITHUB_WORKSPACE} -type f -name "$PKG_NAME.run.tar" -print)" >> $GITHUB_ENV
-          ccache -s
+          export VERSION=${TAG}.git${DATE}
+          export PKG_NAME=far2l_${VERSION}_$(uname -m)-${LIBC}
+          bash ${GITHUB_WORKSPACE}/build_far2l.sh
 
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
           name: far2l-${{ matrix.distro }}-${{ matrix.version }}
-          path: ${{ env.PATH_RUNTAR }}
+          path: |
+            ${{ env.PATH_TARXZ }}
+            ${{ env.PATH_RUNTAR }}
+          if-no-files-found: error
+
+  chroot_build:
+    name: Alpine chroot build ${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+          arch: [x86_64, x86, aarch64, armhf, armv7, ppc64le, s390x]
+          os: [ubuntu-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Checkout far2l
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ env.REPO }}
+          path: far2l
+
+      - name: Setup ccache
+        uses: actions/cache@v3
+        with:
+          path: ${{ github.workspace }}/.ccache
+          key: ccache-${{ matrix.arch }}-${{ github.event.client_payload.sha }}
+          restore-keys: |
+            ccache-${{ matrix.arch }}-
+
+      - name: Setup Alpine Linux for ${{ matrix.arch }}
+        uses: jirutka/setup-alpine@v1
+        with:
+          arch: ${{ matrix.arch }}
+          packages: >
+            bash build-base ccache cmake coreutils findutils gawk grep libarchive-dev libnfs-dev libssh-dev
+            libtree libxi-dev linux-headers neon-dev ninja-build patchelf pcre-dev perl samba-dev tar
+            uchardet-dev wget xerces-c-dev xz
+          shell-name: alpine.sh
+
+      - name: Add extra build-deps to chroot
+        shell: alpine.sh --root {0}
+        run: |
+          apk add --no-progress makeself quilt --repository=https://dl-cdn.alpinelinux.org/alpine/edge/testing
+
+      - name: Build far2l inside chroot
+        working-directory: ./far2l
+        env:
+          ARCH: ${{ matrix.arch }}
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
+          DATE: ${{ github.event.client_payload.date }}
+          SHA: ${{ github.event.client_payload.sha }}
+          TAG: ${{ github.event.client_payload.tag }}
+        shell: alpine.sh {0}
+        run: |
+          export VERSION=${TAG}.git${DATE}
+          export PKG_NAME=far2l_${VERSION}_${ARCH}
+          bash ${GITHUB_WORKSPACE}/build_far2l.sh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: far2l-${{ matrix.arch }}
+          path: |
+            ${{ env.PATH_TARXZ }}
+            ${{ env.PATH_RUNTAR }}
           if-no-files-found: error
 
   release:
     name: Upload Nightly release
-    needs: build
+    needs: [build, chroot_build]
     permissions:
       contents: write
     runs-on: ubuntu-latest
     steps:
-      - run: echo "DATE=$(date --utc -d $DATE +%Y%m%d)" >> $GITHUB_ENV
-        env:
-          DATE: ${{ github.event.client_payload.date }}
-
       - name: Download artifacts
         uses: actions/download-artifact@v3
 
       - name: Upload
+        id: upload
         uses: andelf/nightly-release@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          URL: ${{ github.event.client_payload.url }}
+          MESSAGE: ${{ github.event.client_payload.message }}
         with:
           tag_name: nightly
-          name: '${{ env.DATE }}'
+          name: ${{ github.event.client_payload.date }}
           prerelease: false
           body: |
-            ${{ env.REPO }}@${{ github.event.client_payload.sha }}
+            ${{ env.URL }}: ${{ env.MESSAGE }}
           files: |
             ./**/far2l_*.run.tar
 
       - name: Update version for badge
-        shell: bash
-        env:
-          SHA: ${{ github.event.client_payload.sha }}
-          TAG: ${{ github.event.client_payload.tag }}
-        run: |
-          echo "VERSION=$(echo $TAG | grep -Po '(\d+\.)+\d+')-${SHA:0:7}" >> $GITHUB_ENV
-
-      - name: Write to gist
+        if: steps.upload.outcome == 'success'
         uses: schneegans/dynamic-badges-action@v1.6.0
         with:
           auth: ${{ secrets.GIST_SECRET }}
           gistID: f53cb6c1d56b0eaf40c88d607fc5fef1
           filename: far2l-portable.json
           label: version
-          message: ${{ env.VERSION }}
+          message: ${{ github.event.client_payload.tag }}-${{ github.event.client_payload.sha }}
           color: blue
 
       - name: Delete workflow runs
