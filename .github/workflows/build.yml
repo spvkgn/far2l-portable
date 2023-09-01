@@ -5,9 +5,6 @@ on:
   repository_dispatch:
     types: [build-nightly]
 
-env:
-  REPO: 'elfmz/far2l'
-
 jobs:
   build:
     name: ${{ matrix.distro }}-${{ matrix.version }} build
@@ -39,7 +36,7 @@ jobs:
       - name: Checkout far2l
         uses: actions/checkout@v3
         with:
-          repository: ${{ env.REPO }}
+          repository: ${{ github.event.client_payload.repo }}
           path: far2l
 
       - name: Setup ccache
@@ -53,11 +50,13 @@ jobs:
       - name: Build far2l
         working-directory: ./far2l
         env:
-          CCACHE_DIR: ${{ github.workspace }}/.ccache
           DATE: ${{ github.event.client_payload.date }}
           SHA: ${{ github.event.client_payload.sha }}
           TAG: ${{ github.event.client_payload.tag }}
           LIBC: ${{ matrix.libc }}
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
+          DESTDIR: ${{ github.workspace }}/AppDir
+          STANDALONE: ON
         shell: bash
         run: |
           export VERSION=${TAG}.git${DATE}
@@ -69,8 +68,7 @@ jobs:
         with:
           name: far2l-${{ matrix.distro }}-${{ matrix.version }}
           path: |
-            ${{ env.PATH_TARXZ }}
-            ${{ env.PATH_RUNTAR }}
+            ./**/far2l*.tar*
           if-no-files-found: error
 
   chroot_build:
@@ -87,7 +85,7 @@ jobs:
       - name: Checkout far2l
         uses: actions/checkout@v3
         with:
-          repository: ${{ env.REPO }}
+          repository: ${{ github.event.client_payload.repo }}
           path: far2l
 
       - name: Setup ccache
@@ -104,7 +102,7 @@ jobs:
           arch: ${{ matrix.arch }}
           packages: >
             bash build-base ccache cmake coreutils findutils gawk grep libarchive-dev libnfs-dev libssh-dev
-            libtree libxi-dev linux-headers neon-dev ninja-build patchelf pcre-dev perl samba-dev tar
+            libtree libxi-dev linux-headers neon-dev ninja-is-really-ninja patchelf pcre-dev perl samba-dev tar
             uchardet-dev wget xerces-c-dev xz
           shell-name: alpine.sh
 
@@ -116,11 +114,13 @@ jobs:
       - name: Build far2l inside chroot
         working-directory: ./far2l
         env:
-          ARCH: ${{ matrix.arch }}
-          CCACHE_DIR: ${{ github.workspace }}/.ccache
           DATE: ${{ github.event.client_payload.date }}
           SHA: ${{ github.event.client_payload.sha }}
           TAG: ${{ github.event.client_payload.tag }}
+          ARCH: ${{ matrix.arch }}
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
+          DESTDIR: ${{ github.workspace }}/AppDir
+          STANDALONE: ON
         shell: alpine.sh {0}
         run: |
           export VERSION=${TAG}.git${DATE}
@@ -132,13 +132,67 @@ jobs:
         with:
           name: far2l-${{ matrix.arch }}
           path: |
-            ${{ env.PATH_TARXZ }}
-            ${{ env.PATH_RUNTAR }}
+            ./**/far2l*.tar*
+          if-no-files-found: error
+
+  build_AppImage:
+    name: build AppImage
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-20.04]
+    steps:
+      - name: Add build dependencies
+        env:
+          PACKAGES: >
+            ccache cmake file g++ libarchive-dev libneon27-dev libnfs-dev libpcre3-dev libsmbclient-dev libssh-dev
+            libuchardet-dev libwxgtk3.0-gtk3-dev libxerces-c-dev libxi-dev ninja-build patch patchelf quilt wget
+        run: |
+            sudo apt update -qq && sudo apt install -y --no-install-recommends ${{ env.PACKAGES }}
+
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Checkout far2l
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.client_payload.repo }}
+          path: far2l
+
+      - name: Setup ccache
+        uses: actions/cache@v3
+        with:
+          path: ${{ github.workspace }}/.ccache
+          key: ccache-${{ matrix.os }}-${{ github.event.client_payload.sha }}
+          restore-keys: |
+            ccache-${{ matrix.os }}-
+
+      - name: Build far2l
+        working-directory: ./far2l
+        env:
+          DATE: ${{ github.event.client_payload.date }}
+          SHA: ${{ github.event.client_payload.sha }}
+          TAG: ${{ github.event.client_payload.tag }}
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
+          DESTDIR: ${{ github.workspace }}/AppDir
+          APPIMAGE: ON
+        shell: bash
+        run: |
+          export VERSION=${TAG}.git${DATE}
+          export PKG_NAME=far2l_${VERSION}_$(uname -m)
+          bash ${GITHUB_WORKSPACE}/build_far2l.sh
+
+      - name: Upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: far2l-AppImage-${{ matrix.os }}
+          path: |
+            ./**/far2l*.tar*
           if-no-files-found: error
 
   release:
     name: Upload Nightly release
-    needs: [build, chroot_build]
+    needs: [build, chroot_build, build_AppImage]
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -146,24 +200,22 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v3
 
-      - name: Upload
-        id: upload
-        uses: andelf/nightly-release@main
+      - name: Store .tar files
+        id: store
+        uses: ncipollo/release-action@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           URL: ${{ github.event.client_payload.url }}
           MESSAGE: ${{ github.event.client_payload.message }}
         with:
-          tag_name: nightly
+          tag: latest
           name: ${{ github.event.client_payload.date }}
-          prerelease: false
           body: |
             ${{ env.URL }}: ${{ env.MESSAGE }}
-          files: |
-            ./**/far2l_*.run.tar
+          removeArtifacts: true
+          artifacts: "**/far2l_*.run.tar,**/far2l_*.AppImage.tar"
 
       - name: Update version for badge
-        if: steps.upload.outcome == 'success'
+        if: steps.store.outcome == 'success'
         uses: schneegans/dynamic-badges-action@v1.6.0
         with:
           auth: ${{ secrets.GIST_SECRET }}
