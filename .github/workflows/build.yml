@@ -176,6 +176,7 @@ jobs:
           CCACHE_DIR: ${{ github.workspace }}/.ccache
           DESTDIR: ${{ github.workspace }}/AppDir
           APPIMAGE: true
+          PLUGINS_EXTRA: true
         shell: bash
         run: |
           export VERSION=${TAG}.git${DATE}

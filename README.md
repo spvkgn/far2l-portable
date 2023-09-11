@@ -5,22 +5,19 @@
 with TTY X/Xi backend
 * built on Alpine | ~20 MB (x86_64 x86 aarch64 armhf armv7 ppc64le s390x)
 ```shell
-wget -qO- https://api.github.com/repos/spvkgn/far2l-portable/releases/latest | \
-grep -Po "browser_download_url\": \"\K.*$(uname -m).run.tar(?=\")" | wget -qi- -O- | \
+wget -qO- https://github.com/spvkgn/far2l-portable/releases/download/latest/far2l_$(uname -m).run.tar | \
 tar -xv -C /tmp && /tmp/far2l_*.run
 ```
 * built on Ubuntu 16.04 | ~30 MB (x86_64 only)
 ```shell
-wget -qO- https://api.github.com/repos/spvkgn/far2l-portable/releases/latest | \
-grep -Po "browser_download_url\": \"\K.*$(uname -m)-glibc.run.tar(?=\")" | wget -qi- -O- | \
+wget -qO- https://github.com/spvkgn/far2l-portable/releases/download/latest/far2l_$(uname -m)-glibc.run.tar | \
 tar -xv -C /tmp && /tmp/far2l_*.run
 ```
 ### AppImage
-with wx-GUI and TTY X/Xi backend
+with wx-GUI and some extra plugins
 * built on Ubuntu 20.04 | ~45 MB (x86_64 only)
 ```shell
-wget -qO- https://api.github.com/repos/spvkgn/far2l-portable/releases/latest | \
-grep -Po "browser_download_url\": \"\K.*$(uname -m).AppImage.tar(?=\")" | wget -qi- -O- | \
+wget -qO- https://github.com/spvkgn/far2l-portable/releases/download/latest/far2l_$(uname -m).AppImage.tar | \
 tar -xv -C /tmp && /tmp/far2l_*.AppImage
 ```
 Or get the binary in [Releases](https://github.com/spvkgn/far2l-portable/releases)
