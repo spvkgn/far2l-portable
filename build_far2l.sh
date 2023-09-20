@@ -52,9 +52,10 @@ if [[ "$APPIMAGE" == "true" ]]; then
   export DISABLE_COPYRIGHT_FILES_DEPLOYMENT=1
   export NO_STRIP=1
   # export APPIMAGE_EXTRACT_AND_RUN=1
-  ARCH=$(uname -m)
+  export ARCH=$(uname -m)
   ( cd $REPO_DIR && \
     AppDir/usr/bin/far2l --help >/dev/null && \
+    sed 's|@APP@|far2l|' -i AppRun && cp -vf AppRun AppDir && chmod +x AppDir/AppRun && \
     wget --no-check-certificate https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-$ARCH.AppImage && \
     wget --no-check-certificate https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-$ARCH.AppImage && \
     chmod +x *.AppImage && \
