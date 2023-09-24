@@ -7,14 +7,13 @@ on:
 
 jobs:
   build:
-    name: ${{ matrix.distro }}-${{ matrix.version }} build
+    name: build
     runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
           - distro: ubuntu
             version: '16.04'
-            libc: glibc
     container: ${{ matrix.distro }}:${{ matrix.version }}
     steps:
       - name: Add build dependencies
@@ -24,9 +23,7 @@ jobs:
             libuchardet-dev libxerces-c-dev libxi-dev libtree makeself ninja-build patch patchelf quilt wget
         run: |
           if [ "${{ matrix.distro }}" = "ubuntu" ]; then
-            if [ "${{ matrix.version }}" = "16.04" ]; then
-              echo "deb [trusted=yes] http://ppa.launchpad.net/far2l-team/tools/ubuntu xenial main" | tee /etc/apt/sources.list.d/far2l-team.list
-            fi
+            echo "deb [trusted=yes] http://ppa.launchpad.net/far2l-team/tools/ubuntu xenial main" | tee /etc/apt/sources.list.d/far2l-team.list
             apt update -qq && apt install -y --no-install-recommends ${{ env.PACKAGES }}
           fi
 
@@ -53,14 +50,13 @@ jobs:
           DATE: ${{ github.event.client_payload.date }}
           SHA: ${{ github.event.client_payload.sha }}
           TAG: ${{ github.event.client_payload.tag }}
-          LIBC: ${{ matrix.libc }}
           CCACHE_DIR: ${{ github.workspace }}/.ccache
           DESTDIR: ${{ github.workspace }}/AppDir
           STANDALONE: true
         shell: bash
         run: |
           export VERSION=${TAG}.git${DATE}
-          export PKG_NAME=far2l_${VERSION}_$(uname -m)-${LIBC}
+          export PKG_NAME=far2l_${VERSION}_$(uname -m)-glibc
           bash -x ${GITHUB_WORKSPACE}/build_far2l.sh
 
       - name: Upload artifact
@@ -71,8 +67,8 @@ jobs:
             ./**/far2l*.tar*
           if-no-files-found: error
 
-  chroot_build:
-    name: Alpine chroot build ${{ matrix.arch }}
+  build-chroot:
+    name: build ${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -135,7 +131,7 @@ jobs:
             ./**/far2l*.tar*
           if-no-files-found: error
 
-  build_AppImage:
+  build-AppImage:
     name: build AppImage
     runs-on: ${{ matrix.os }}
     strategy:
@@ -193,7 +189,7 @@ jobs:
 
   release:
     name: Upload Nightly release
-    needs: [build, chroot_build, build_AppImage]
+    needs: [build, build-chroot, build-AppImage]
     permissions:
       contents: write
     runs-on: ubuntu-latest
