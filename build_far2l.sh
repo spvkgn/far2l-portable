@@ -10,6 +10,9 @@ fi
 if [[ "$STANDALONE" == "true" ]]; then
   CMAKE_OPTS+=( "-DUSEWX=no" )
 fi
+if [[ "$ARCH" =~ ^(x86|armhf|armv7)$ ]]; then
+  CMAKE_OPTS+=( "-DNETROCKS=no" )
+fi
 if [[ "$PLUGINS_EXTRA" == "true" ]]; then
   for plug in netcfgplugin sqlplugin processes ; do
     git clone --depth 1 https://github.com/VPROFi/$plug.git && \
