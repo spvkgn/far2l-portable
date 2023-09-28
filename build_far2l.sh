@@ -11,7 +11,10 @@ if [[ "$STANDALONE" == "true" ]]; then
   CMAKE_OPTS+=( "-DUSEWX=no" )
 fi
 if [[ "$ARCH" =~ ^(x86|armhf|armv7)$ ]]; then
-  CMAKE_OPTS+=( "-DNETROCKS=no" )
+  # CMAKE_OPTS+=( "-DNETROCKS=no" )
+  echo "patch for x86, armhf and armv7"
+  pwd
+  sed -ibak 's|const size_t piece = std::min(len - rv, _chunk);|size_t piece = 0; if (len - rv <= _chunk) { piece = len -rv; } if (len - rv > _chunk) { piece = _chunk; }|' ./NetRocks/src/Protocol/SHELL/ProtocolSHELL.cpp
 fi
 if [[ "$PLUGINS_EXTRA" == "true" ]]; then
   for plug in netcfgplugin sqlplugin processes ; do
