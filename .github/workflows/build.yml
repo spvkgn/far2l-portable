@@ -95,6 +95,7 @@ jobs:
       - name: Setup Alpine Linux for ${{ matrix.arch }}
         uses: jirutka/setup-alpine@v1
         with:
+          branch: v3.18
           arch: ${{ matrix.arch }}
           packages: >
             bash build-base ccache cmake coreutils findutils gawk grep libarchive-dev libnfs-dev libssh-dev
@@ -105,7 +106,8 @@ jobs:
       - name: Add extra build-deps to chroot
         shell: alpine.sh --root {0}
         run: |
-          apk add --no-progress makeself quilt --repository=https://dl-cdn.alpinelinux.org/alpine/edge/testing
+          apk add --no-progress makeself --repository=https://dl-cdn.alpinelinux.org/alpine/edge/testing
+          apk add --no-progress quilt --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community
 
       - name: Build far2l inside chroot
         working-directory: ./far2l
