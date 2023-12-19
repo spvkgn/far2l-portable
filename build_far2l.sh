@@ -17,6 +17,11 @@ if [[ "$PLUGINS_EXTRA" == "true" ]]; then
       find . -mindepth 1 -name 'src' -prune -o -exec rm -rf {} + && \
       mv src/* . && rm -rf src )
     echo "add_subdirectory($plug)" >> CMakeLists.txt
+    if [[ "$plug" == "netcfgplugin" ]]; then
+      # patch if_tunnel.h, add ip.h before
+      echo 'patch if_tunnel.h, add ip.h before'
+      sed -ibak 's!#include <linux/if_tunnel.h>!#include <linux/ip.h>\n#include <linux/if_tunnel.h>!' netcfgplugin/common/netlink.h
+    fi
   done
 fi
 if [[ "$PLUGINS" == "false" ]]; then
