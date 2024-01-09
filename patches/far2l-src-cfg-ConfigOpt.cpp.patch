@@ -1,6 +1,6 @@
---- a/far2l/src/cfg/ConfigSaveLoad.cpp
-+++ b/far2l/src/cfg/ConfigSaveLoad.cpp
-@@ -266,7 +266,7 @@ public:
+--- a/far2l/src/cfg/ConfigOpt.cpp
++++ b/far2l/src/cfg/ConfigOpt.cpp
+@@ -157,7 +157,7 @@ const ConfigOpt g_cfg_opts[] = {
  	{true,  NSecInterface, "ExclusiveWinLeft", &Opt.ExclusiveWinLeft, 0},
  	{true,  NSecInterface, "ExclusiveWinRight", &Opt.ExclusiveWinRight, 0},
  
@@ -9,7 +9,7 @@
  	{true,  NSecInterface, "TTYPaletteOverride", &Opt.TTYPaletteOverride, 1},
  
  	{false, NSecInterface, "ShowTimeoutDelFiles", &Opt.ShowTimeoutDelFiles, 50},
-@@ -356,7 +356,7 @@ public:
+@@ -247,7 +247,7 @@ const ConfigOpt g_cfg_opts[] = {
  	{true,  NSecSystem, "SaveFoldersHistory", &Opt.SaveFoldersHistory, 1},
  	{false, NSecSystem, "SavePluginFoldersHistory", &Opt.SavePluginFoldersHistory, 0},
  	{true,  NSecSystem, "SaveViewHistory", &Opt.SaveViewHistory, 1},

@@ -1,7 +1,7 @@
 --- a/WinPort/src/Backend/WinPortMain.cpp
 +++ b/WinPort/src/Backend/WinPortMain.cpp
-@@ -242,7 +242,7 @@ struct ArgOptions
- 	bool tty = false, far2l_tty = false, notty = false;
+@@ -246,7 +246,7 @@ struct ArgOptions
+ 	bool tty = false, far2l_tty = false, notty = false, norgb = false;
  	bool mortal = false;
  	std::string ext_clipboard;
 -	unsigned int esc_expiration = 0;
