@@ -34,10 +34,8 @@ cmake -G Ninja \
   -DCMAKE_VERBOSE_MAKEFILE=ON \
   -DCMAKE_C_COMPILER_LAUNCHER=/usr/bin/ccache \
   -DCMAKE_CXX_COMPILER_LAUNCHER=/usr/bin/ccache \
-  -DCMAKE_DISABLE_FIND_PACKAGE_Git=ON \
-  -DGIT_HASH=$SHA \
   ${CMAKE_OPTS[@]} .. && \
-  ninja && ninja install && \
+  ninja && ninja install/strip && \
 
 find $REPO_DIR -type d -path "*/AppDir" -exec tar cJvf far2l.tar.xz -C {} . \;
 

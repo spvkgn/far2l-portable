@@ -1,5 +1,5 @@
 name: build
-run-name: 🌙 Nightly build for ${{ github.event.client_payload.tag }}-${{ github.event.client_payload.sha }}
+run-name: 🌙 Nightly build 🚀 ${{ github.event.client_payload.tag }}-${{ github.event.client_payload.date }}-${{ github.event.client_payload.sha }}
 
 on:
   repository_dispatch:
@@ -19,11 +19,12 @@ jobs:
       - name: Add build dependencies
         env:
           PACKAGES: >
-            ccache cmake file g++ libarchive-dev libneon27-dev libnfs-dev libpcre3-dev libsmbclient-dev libssh-dev
-            libuchardet-dev libxerces-c-dev libxi-dev libtree makeself ninja-build patch patchelf quilt wget
+            ca-certificates ccache cmake file g++ git libarchive-dev libneon27-dev libnfs-dev libpcre3-dev libsmbclient-dev
+            libssh-dev libuchardet-dev libxerces-c-dev libxi-dev libtree makeself ninja-build patch patchelf quilt wget
         run: |
           if [ "${{ matrix.distro }}" = "ubuntu" ]; then
             echo "deb [trusted=yes] http://ppa.launchpad.net/far2l-team/tools/ubuntu xenial main" | tee /etc/apt/sources.list.d/far2l-team.list
+            echo "deb [trusted=yes] http://ppa.launchpad.net/git-core/ppa/ubuntu xenial main" | tee /etc/apt/sources.list.d/git-core.list
             apt update -qq && apt install -y --no-install-recommends ${{ env.PACKAGES }}
           fi
 
@@ -55,7 +56,7 @@ jobs:
           STANDALONE: true
         shell: bash
         run: |
-          export VERSION=${TAG}.git${DATE}
+          export VERSION=${TAG}.git$(date -d $DATE +%Y%m%d)
           export PKG_NAME=far2l_${VERSION}_$(uname -m)-glibc
           bash -x ${GITHUB_WORKSPACE}/build_far2l.sh
 
@@ -76,16 +77,16 @@ jobs:
           os: [ubuntu-latest]
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Checkout far2l
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: ${{ github.event.client_payload.repo }}
           path: far2l
 
       - name: Setup ccache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/.ccache
           key: ccache-${{ matrix.arch }}-${{ github.event.client_payload.sha }}
@@ -98,7 +99,7 @@ jobs:
           branch: v3.18
           arch: ${{ matrix.arch }}
           packages: >
-            bash build-base ccache cmake coreutils findutils gawk grep libarchive-dev libnfs-dev libssh-dev
+            bash build-base ccache cmake coreutils findutils gawk git grep libarchive-dev libnfs-dev libssh-dev
             libtree libxi-dev linux-headers neon-dev ninja-is-really-ninja patchelf pcre-dev perl samba-dev tar
             uchardet-dev wget xerces-c-dev xz
           shell-name: alpine.sh
@@ -121,7 +122,7 @@ jobs:
           STANDALONE: true
         shell: alpine.sh {0}
         run: |
-          export VERSION=${TAG}.git${DATE}
+          export VERSION=${TAG}.git$(date -d $DATE +%Y%m%d)
           export PKG_NAME=far2l_${VERSION}_${ARCH}
           bash -x ${GITHUB_WORKSPACE}/build_far2l.sh
 
@@ -149,16 +150,16 @@ jobs:
             sudo apt update -qq && sudo apt install -y --no-install-recommends ${{ env.PACKAGES }}
 
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Checkout far2l
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: ${{ github.event.client_payload.repo }}
           path: far2l
 
       - name: Setup ccache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/.ccache
           key: ccache-${{ matrix.os }}-${{ github.event.client_payload.sha }}
@@ -177,7 +178,7 @@ jobs:
           PLUGINS_EXTRA: true
         shell: bash
         run: |
-          export VERSION=${TAG}.git${DATE}
+          export VERSION=${TAG}.git$(date -d $DATE +%Y%m%d)
           export PKG_NAME=far2l_${VERSION}_$(uname -m)
           bash -x ${GITHUB_WORKSPACE}/build_far2l.sh
 
@@ -204,27 +205,25 @@ jobs:
         uses: andelf/nightly-release@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          URL: ${{ github.event.client_payload.url }}
-          MESSAGE: ${{ github.event.client_payload.message }}
         with:
           prerelease: false
           tag_name: latest
           name: ${{ github.event.client_payload.date }}
           body: |
-            ${{ env.URL }}: ${{ env.MESSAGE }}
+            ${{ github.event.client_payload.url }}: ${{ github.event.client_payload.message }}
           files: |
             ./**/far2l_*.run.tar
             ./**/far2l_*.AppImage.tar
 
       - name: Update version for badge
         if: steps.store.outcome == 'success'
-        uses: schneegans/dynamic-badges-action@v1.6.0
+        uses: schneegans/dynamic-badges-action@v1.7.0
         with:
           auth: ${{ secrets.GIST_SECRET }}
           gistID: f53cb6c1d56b0eaf40c88d607fc5fef1
           filename: far2l-portable.json
           label: version
-          message: ${{ github.event.client_payload.tag }}-${{ github.event.client_payload.sha }}
+          message: ${{ github.event.client_payload.tag }}-${{ github.event.client_payload.date }}-${{ github.event.client_payload.sha }}
           color: blue
 
       - name: Delete workflow runs
