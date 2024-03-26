@@ -51,8 +51,6 @@ jobs:
           DATE: ${{ github.event.client_payload.date }}
           SHA: ${{ github.event.client_payload.sha }}
           TAG: ${{ github.event.client_payload.tag }}
-          CCACHE_DIR: ${{ github.workspace }}/.ccache
-          DESTDIR: ${{ github.workspace }}/AppDir
           STANDALONE: true
         shell: bash
         run: |
@@ -117,8 +115,6 @@ jobs:
           SHA: ${{ github.event.client_payload.sha }}
           TAG: ${{ github.event.client_payload.tag }}
           ARCH: ${{ matrix.arch }}
-          CCACHE_DIR: ${{ github.workspace }}/.ccache
-          DESTDIR: ${{ github.workspace }}/AppDir
           STANDALONE: true
         shell: alpine.sh {0}
         run: |
@@ -172,8 +168,6 @@ jobs:
           DATE: ${{ github.event.client_payload.date }}
           SHA: ${{ github.event.client_payload.sha }}
           TAG: ${{ github.event.client_payload.tag }}
-          CCACHE_DIR: ${{ github.workspace }}/.ccache
-          DESTDIR: ${{ github.workspace }}/AppDir
           APPIMAGE: true
           PLUGINS_EXTRA: true
         shell: bash
@@ -182,7 +176,7 @@ jobs:
           export PKG_NAME=far2l_${VERSION}_$(uname -m)
           bash -x ${GITHUB_WORKSPACE}/build_far2l.sh
 
-      - name: Upload
+      - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
           name: far2l-AppImage-${{ matrix.os }}
@@ -191,7 +185,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    name: Upload Nightly release
+    name: Update Nightly release
     needs: [build, build-chroot, build-AppImage]
     permissions:
       contents: write
@@ -200,8 +194,8 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v3
 
-      - name: Store .tar files
-        id: store
+      - name: Upload release assets
+        id: assets
         uses: andelf/nightly-release@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -216,7 +210,7 @@ jobs:
             ./**/far2l_*.AppImage.tar
 
       - name: Update version for badge
-        if: steps.store.outcome == 'success'
+        if: steps.assets.outcome == 'success'
         uses: schneegans/dynamic-badges-action@v1.7.0
         with:
           auth: ${{ secrets.GIST_SECRET }}

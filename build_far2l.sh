@@ -1,8 +1,9 @@
 #!/bin/bash
 
 REPO_DIR=$GITHUB_WORKSPACE
+export CCACHE_DIR=$REPO_DIR/.ccache
+export DESTDIR=$REPO_DIR/AppDir
 BUILD_DIR=build
-INSTALL_DIR=install
 
 if [[ $(awk -F= '/^ID=/ {print $2}' /etc/os-release) == "alpine" ]]; then
   CMAKE_OPTS+=( "-DMUSL=ON" )
@@ -27,22 +28,23 @@ fi
 
 QUILT_PATCHES=$REPO_DIR/patches quilt push -a
 
-mkdir -p $BUILD_DIR && cd $BUILD_DIR && \
-cmake -G Ninja \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_INSTALL_PREFIX=/usr \
-  -DCMAKE_VERBOSE_MAKEFILE=ON \
-  -DCMAKE_C_COMPILER_LAUNCHER=/usr/bin/ccache \
-  -DCMAKE_CXX_COMPILER_LAUNCHER=/usr/bin/ccache \
-  ${CMAKE_OPTS[@]} .. && \
-  ninja && ninja install/strip && \
+mkdir -p $BUILD_DIR && \
+( cd $BUILD_DIR && \
+  cmake -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_VERBOSE_MAKEFILE=ON \
+    -DCMAKE_C_COMPILER_LAUNCHER=/usr/bin/ccache \
+    -DCMAKE_CXX_COMPILER_LAUNCHER=/usr/bin/ccache \
+    ${CMAKE_OPTS[@]} .. && \
+    ninja && ninja install/strip ) && \
 
-find $REPO_DIR -type d -path "*/AppDir" -exec tar cJvf far2l.tar.xz -C {} . \;
+tar cJvf $REPO_DIR/far2l.tar.xz -C $REPO_DIR/AppDir .
 
 if [[ "$STANDALONE" == "true" ]]; then
-  ( cd $INSTALL_DIR && ./far2l --help >/dev/null && bash -x $REPO_DIR/make_standalone.sh ) && \
-  makeself --keep-umask $REPO_DIR/far2l/$BUILD_DIR/$INSTALL_DIR $PKG_NAME.run "FAR2L File Manager" ./far2l && \
-  find $REPO_DIR -type f -name $PKG_NAME.run -exec bash -c "tar cvf ${PKG_NAME/${VERSION}_}.run.tar --transform 's|.*/||' {}" \;
+  ( cd $BUILD_DIR/install && ./far2l --help >/dev/null && bash -x $REPO_DIR/make_standalone.sh ) && \
+  ( cd $REPO_DIR && makeself --keep-umask far2l/$BUILD_DIR/install $PKG_NAME.run "FAR2L File Manager" ./far2l && \
+    tar cvf ${PKG_NAME/${VERSION}_}.run.tar $PKG_NAME.run )
 fi
 
 if [[ "$APPIMAGE" == "true" ]]; then
@@ -57,8 +59,8 @@ if [[ "$APPIMAGE" == "true" ]]; then
     wget --no-check-certificate https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-$ARCH.AppImage && \
     chmod +x *.AppImage && \
     ./linuxdeploy-*.AppImage --appdir=AppDir --custom-apprun=AppRun && \
-    ./appimagetool-*.AppImage -v AppDir $PKG_NAME.AppImage )
-  find $REPO_DIR -type f -name $PKG_NAME.AppImage -exec bash -c "tar cvf ${PKG_NAME/${VERSION}_}.AppImage.tar --transform 's|.*/||' {}" \;
+    ./appimagetool-*.AppImage -v AppDir $PKG_NAME.AppImage && \
+    tar cvf ${PKG_NAME/${VERSION}_}.AppImage.tar $PKG_NAME.AppImage )
 fi
 
 ccache --max-size=50M --show-stats
