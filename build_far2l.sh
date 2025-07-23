@@ -7,7 +7,7 @@ export DESTDIR=$REPO_DIR/AppDir
 BUILD_DIR=build
 
 if [[ $(awk -F= '/^ID=/ {print $2}' /etc/os-release) == "alpine" ]]; then
-  CMAKE_OPTS+=( "-DMUSL=ON" )
+  CMAKE_OPTS+=( "-DMUSL=ON -DARCLITE=no" )
 fi
 if [[ "$WXGUI" == "false" ]]; then
   CMAKE_OPTS+=( "-DUSEWX=no" )
@@ -23,7 +23,7 @@ if [[ "$PLUGINS_EXTRA" == "true" ]]; then
     done )
 fi
 if [[ "$PLUGINS" == "false" ]]; then
-  CMAKE_OPTS+=( "-DCOLORER=no -DNETROCKS=no -DALIGN=no -DAUTOWRAP=no -DCALC=no \
+  CMAKE_OPTS+=( "-DARCLITE=no -DCOLORER=no -DNETROCKS=no -DALIGN=no -DAUTOWRAP=no -DCALC=no \
     -DCOMPARE=no -DDRAWLINE=no -DEDITCASE=no -DEDITORCOMP=no -DFILECASE=no \
     -DINCSRCH=no -DINSIDE=no -DMULTIARC=no -DSIMPLEINDENT=no -DTMPPANEL=no" )
 fi
