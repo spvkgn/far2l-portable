@@ -16,7 +16,9 @@ AppDir:
       - sourceline: 'deb [arch={{APPIMAGE_APT_ARCH}}] http://archive.ubuntu.com/ubuntu/ {{APPIMAGE_APT_DISTRO}} main restricted universe multiverse'
       - sourceline: 'deb [arch={{APPIMAGE_APT_ARCH}}] http://archive.ubuntu.com/ubuntu/ {{APPIMAGE_APT_DISTRO}}-updates main restricted universe multiverse'
       - sourceline: 'deb [arch={{APPIMAGE_APT_ARCH}}] http://security.ubuntu.com/ubuntu/ {{APPIMAGE_APT_DISTRO}}-security main restricted universe multiverse'
+      - sourceline: 'deb [arch={{APPIMAGE_APT_ARCH}}] http://ppa.launchpad.net/far2l-team/tools/ubuntu bionic main'
     include:
+      - 7zip
       - bash
       - dash
       - libarchive13
@@ -112,6 +114,11 @@ AppDir:
   files:
     exclude:
       - etc/python3*
+      - usr/bin/*7z*
+      - usr/lib/7zip/7z
+      - usr/lib/7zip/7za
+      - usr/lib/7zip/7zr
+      - usr/lib/7zip/7zCon.sfx
       - usr/lib/*-linux-gnu/ldb
       - usr/lib/*-linux-gnu/libwx_baseu_net*
       - usr/lib/*-linux-gnu/libwx_baseu_xml
@@ -136,6 +143,9 @@ AppDir:
       - usr/share/pixmaps
       - usr/share/python3
       - usr/share/themes
+
+  after_bundle: |
+    ln -s ../../../../7zip/7z.so $TARGET_APPDIR/usr/lib/far2l/Plugins/arclite/plug/7z.so
 
   runtime:
     env:

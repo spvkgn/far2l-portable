@@ -43,7 +43,16 @@ cmake -S $REPO_DIR/far2l -B$REPO_DIR/far2l/$BUILD_DIR \
 if [[ "$STANDALONE" == "true" ]]; then
   mkdir -p $REPO_DIR/standalone
   cp -a $REPO_DIR/far2l/$BUILD_DIR/install/* $REPO_DIR/standalone
-  ( cd $REPO_DIR/standalone && ./far2l --help >/dev/null && bash -x $REPO_DIR/make_standalone.sh )
+  if [[ "$ADD_7Z" == "true" ]]; then
+    cp -a /usr/lib/7zip/7z.so $REPO_DIR/standalone
+  fi
+  ( cd "$REPO_DIR/standalone"
+    ./far2l --help >/dev/null
+    bash -x "$REPO_DIR/make_standalone.sh"
+    if [[ "$ADD_7Z" == "true" ]]; then
+      mv 7z.so lib
+      ln -s ../../../lib/7z.so Plugins/arclite/plug/7z.so
+    fi )
   makeself --keep-umask --nomd5 --nocrc $REPO_DIR/standalone $PKG_NAME.run "FAR2L File Manager" ./far2l
   tar -cvf ${PKG_NAME/_${VERSION}}.run.tar $PKG_NAME.run
 fi

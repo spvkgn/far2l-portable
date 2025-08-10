@@ -51,7 +51,7 @@ jobs:
         env:
           DEBIAN_FRONTEND: noninteractive
           PACKAGES: >
-            ca-certificates ccache cmake file g++ git libarchive-dev libneon27-dev libnfs-dev libsmbclient-dev
+            7zip ca-certificates ccache cmake file g++ git libarchive-dev libneon27-dev libnfs-dev libsmbclient-dev
             libssh-dev libuchardet-dev libxml2-dev libxi-dev libtree make makeself patch patchelf quilt wget xz-utils
         run: |
           if [ "${{ matrix.distro }}" = "ubuntu" ]; then
@@ -83,6 +83,7 @@ jobs:
           TAG: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.tag || needs.check.outputs.tag }}
           STANDALONE: true
           WXGUI: false
+          ADD_7Z: true
         run: |
           export VERSION=${TAG}.git$(date -d $DATE +%Y%m%d)
           export PKG_NAME=far2l_${VERSION}-$(uname -m)-glibc
