@@ -5,11 +5,11 @@
 with TTY X/Xi backend
 * built on Alpine | ~20 MB (x86_64 x86 aarch64 armhf armv7)
 ```
-wget -qO- https://github.com/spvkgn/far2l-portable/releases/download/latest/far2l-$(uname -m).run.tar | tar -xv -C /tmp && /tmp/far2l*.run
+wget -qO- https://github.com/spvkgn/far2l-portable/releases/download/latest/far2l-$(uname -m)-musl.run.tar | tar -xv -C /tmp && /tmp/far2l*.run
 ```
-* built on Ubuntu 20.04 | ~35 MB (x86_64 only)
+* built on Ubuntu 20.04 | ~35 MB (x86_64 aarch64)
 ```
-wget -qO- https://github.com/spvkgn/far2l-portable/releases/download/latest/far2l-x86_64-glibc.run.tar | tar -xv -C /tmp && /tmp/far2l*.run
+wget -qO- https://github.com/spvkgn/far2l-portable/releases/download/latest/far2l-$(uname -m)-glibc.run.tar | tar -xv -C /tmp && /tmp/far2l*.run
 ```
 ### AppImage
 with wx-GUI

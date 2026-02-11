@@ -36,14 +36,20 @@ jobs:
           } >> $GITHUB_OUTPUT
 
   build-portable-glibc:
-    name: build
+    name: build ${{ matrix.arch }}-glibc
     needs: check
     if: always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
-    runs-on: ubuntu-22.04
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
-          - distro: ubuntu
+          - os: ubuntu-22.04
+            arch: x64
+            distro: ubuntu
+            version: '20.04'
+          - os: ubuntu-22.04-arm
+            arch: arm64
+            distro: ubuntu
             version: '20.04'
     container: ${{ matrix.distro }}:${{ matrix.version }}
     steps:
@@ -73,8 +79,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/.ccache
-          key: ccache-${{ matrix.distro }}-${{ matrix.version }}-${{ github.event_name == 'repository_dispatch' && github.event.client_payload.sha || github.run_id }}
-          restore-keys: ccache-${{ matrix.distro }}-${{ matrix.version }}-
+          key: ccache-${{ matrix.distro }}-${{ matrix.version }}-${{ matrix.arch }}-${{ github.event_name == 'repository_dispatch' && github.event.client_payload.sha || github.run_id }}
+          restore-keys: ccache-${{ matrix.distro }}-${{ matrix.version }}-${{ matrix.arch }}-
 
       - name: Build far2l
         env:
@@ -92,12 +98,12 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: far2l-${{ matrix.distro }}-${{ matrix.version }}
+          name: far2l-${{ matrix.distro }}-${{ matrix.version }}-${{ matrix.arch }}
           path: ./**/far2l*.tar*
           if-no-files-found: error
 
   build-portable-musl:
-    name: build ${{ matrix.arch }}
+    name: build ${{ matrix.arch }}-musl
     needs: check
     if: always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
     runs-on: ubuntu-22.04
@@ -155,7 +161,7 @@ jobs:
         shell: alpine.sh {0}
         run: |
           export VERSION=${TAG}.git$(date -d $DATE +%Y%m%d)
-          export PKG_NAME=far2l_${VERSION}-${ARCH}
+          export PKG_NAME=far2l_${VERSION}-${ARCH}-musl
           bash build_far2l.sh
 
       - name: Upload artifact
