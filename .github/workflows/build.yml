@@ -271,6 +271,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          only-when-changed: false
           prerelease: false
           tag_name: latest
           name: ${{ env.DATE }}
