@@ -52,4 +52,4 @@ elif [[ $LIBC == "glibc" ]]; then
   # cp -vL $(ldconfig -p | awk -v var="$(dpkg-architecture -qDEB_BUILD_MULTIARCH)/ld-" '$4 ~ var {print $4}') $LIB_DIR
 fi
 
-find . ! -path "./$LIB_DIR/*" -type f -exec sh -c 'file -b {} | grep -q ELF' \; -print | sort -f | xargs -I{} libtree -pvv {} | tee libtree.txt
+find . ! -path "./$LIB_DIR/*" -name '*.so' -type f -exec sh -c 'file -b {} | grep -q ELF' \; -print | sort -f | xargs -I{} libtree -pvv {} | tee libtree.txt

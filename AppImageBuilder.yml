@@ -31,7 +31,6 @@ AppDir:
       - libwayland-cursor0
       - libwayland-egl1
       - libwxgtk3.0-gtk3-0v5
-      - libxerces-c3.2
     exclude:
       - adwaita-icon-theme
       - hicolor-icon-theme
