@@ -28,7 +28,7 @@ if [[ "$PLUGINS" == "false" ]]; then
     -DINCSRCH=no -DINSIDE=no -DMULTIARC=no -DSIMPLEINDENT=no -DTMPPANEL=no" )
 fi
 
-[[ -d $REPO_DIR/patches ]] && ( cd $REPO_DIR/far2l && QUILT_PATCHES=$REPO_DIR/patches quilt push -a )
+[[ -d $REPO_DIR/patches ]] && ( cd $REPO_DIR/far2l && QUILT_PATCHES=$REPO_DIR/patches quilt push -a || true )
 
 mkdir -p $BUILD_DIR
 cmake -S $REPO_DIR/far2l -B$REPO_DIR/far2l/$BUILD_DIR \
